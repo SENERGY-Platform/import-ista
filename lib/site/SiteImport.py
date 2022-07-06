@@ -51,7 +51,6 @@ class SiteImport:
             if not resp.ok:
                 raise Exception("Request got unexpected status code " + str(resp.status_code))
             resp = resp.json()
-            print(resp)
             points = self.__extract(resp)
             for dt, val in points:
                 self.__lib.put(dt, val)
@@ -66,8 +65,12 @@ class SiteImport:
 
     def __extract(self, raw: typing.Dict) -> typing.List[typing.Tuple[datetime.datetime, typing.Dict]]:
         resp = []
+        cost = {}
         for consumption in raw['consumptions']:
-            point = Point.get_message(consumption)
+            for costs in raw['costs']:
+                if consumption["date"]["month"] == costs["date"]["month"] and consumption["date"]["year"] == costs["date"]["year"]:
+                    cost = costs
+            point = Point.get_message(consumption, cost)
             print(point)
             date = datetime.datetime(consumption["date"]["year"], consumption["date"]["month"], 28)
             next_month = date + datetime.timedelta(days=4)

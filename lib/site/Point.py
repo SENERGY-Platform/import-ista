@@ -15,25 +15,40 @@
 from typing import Dict
 
 
-def get_message(raw) -> Dict:
-
+def get_message(consumptions, costs) -> Dict:
     heating = {}
     warmwater = {}
-    for reading in raw["readings"]:
+    for reading in consumptions["readings"]:
         if reading["type"] == "heating":
+            cost_value = 0
+            cost_unit = "EUR"
+            for cost in costs["costsByEnergyType"]:
+                if cost["type"] == "heating":
+                    cost_value = cost["value"]
+                    cost_unit = cost["unit"]
             heating = {
                 "value": float(reading["value"].replace('.','').replace(',','.')),
-                "unit": reading["unit"]
+                "unit": reading["unit"],
+                "cost_value": cost_value,
+                "cost_unit": cost_unit
             }
         if reading["type"] == "warmwater":
+            cost_value = 0
+            cost_unit = "EUR"
+            for cost in costs["costsByEnergyType"]:
+                if cost["type"] == "warmwater":
+                    cost_value = cost["value"]
+                    cost_unit = cost["unit"]
             warmwater = {
                 "value": float(reading["value"].replace('.','').replace(',','.')),
-                "unit": reading["unit"]
+                "unit": reading["unit"],
+                "cost_value": cost_value,
+                "cost_unit": cost_unit
             }
 
     return {
-        "month": raw["date"]["month"],
-        "year": raw["date"]["year"],
+        "month": consumptions["date"]["month"],
+        "year": consumptions["date"]["year"],
         "heating": heating,
         "warmwater": warmwater
     }
