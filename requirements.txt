@@ -1,0 +1,3 @@
+git+https://github.com/SENERGY-Platform/import-lib.git@df85857d5f4bf0abdabfd93d003350b20cb013bc
+requests
+pytz
