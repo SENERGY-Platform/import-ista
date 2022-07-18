@@ -13,6 +13,7 @@
 #   limitations under the License.
 
 import datetime
+import json
 import sched
 import typing
 
@@ -23,7 +24,7 @@ from import_lib.import_lib import ImportLib, get_logger
 from lib.site import Point
 
 logger = get_logger(__name__)
-baseUrl = 'https://api.prod.eed.ista.com/consumptions?consumptionUnitUuid='
+baseUrl = 'https://api.prod.eed.ista.com/'
 dtFormat = '%Y-%m-%d %H:%M:%S'
 
 
@@ -32,9 +33,17 @@ class SiteImport:
         self.__lib = lib
         self.__scheduler = scheduler
 
-        self.__token = self.__lib.get_config("TOKEN", None)
-        if self.__token is None or len(self.__token) == 0:
-            raise AssertionError("TOKEN not set")
+        self.__email = self.__lib.get_config("EMAIL", None)
+        if self.__email is None or len(self.__email) == 0:
+            raise AssertionError("EMAIL not set")
+
+        self.__pw = self.__lib.get_config("PW", None)
+        if self.__pw is None or len(self.__pw) == 0:
+            raise AssertionError("PW not set")
+
+        self.__accessToken = None
+        self.__refreshToken = None
+
         self.__uuid = self.__lib.get_config("UUID", None)
         if self.__uuid is None or len(self.__uuid) == 0:
             raise AssertionError("UUID not set")
@@ -43,11 +52,24 @@ class SiteImport:
         self.__delay = (60 * 60 * 24) * self.__lib.get_config("EVERY_DAYS", 30)
         self.__last_dt, _ = self.__lib.get_last_published_datetime()
         self.__scheduler.enter(0, 1, self.__import)
+        if self.__accessToken is None or len(self.__accessToken) == 0:
+            try:
+                data = {'email': self.__email, 'fromMobileApp': False, 'password': self.__pw}
+                headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+                resp = requests.post(f"{baseUrl}login", data=json.dumps(data), headers= headers)
+                if not resp.ok:
+                    raise Exception("Request got unexpected status code " + str(resp.status_code))
+                resp = resp.json()
+                self.__accessToken = resp["accessToken"]
+                self.__refreshToken = resp["refreshToken"]
+            except Exception as e:
+                logger.error(f"Could not login {e}")
+                return
 
     def __import(self):
         try:
             resp = requests.get(
-                f"{baseUrl}{self.__uuid}", headers={"Authorization": self.__token})
+                f"{baseUrl}consumptions?consumptionUnitUuid={self.__uuid}", headers={"Authorization": self.__accessToken})
             if not resp.ok:
                 raise Exception("Request got unexpected status code " + str(resp.status_code))
             resp = resp.json()
@@ -71,7 +93,6 @@ class SiteImport:
                 if consumption["date"]["month"] == costs["date"]["month"] and consumption["date"]["year"] == costs["date"]["year"]:
                     cost = costs
             point = Point.get_message(consumption, cost)
-            print(point)
             date = datetime.datetime(consumption["date"]["year"], consumption["date"]["month"], 28)
             next_month = date + datetime.timedelta(days=4)
             last_day_of_month = next_month - datetime.timedelta(days=next_month.day)

@@ -2,3 +2,4 @@ venv
 .idea
 __pycache__
 *.iml
+lib/site/__pycache__/*
